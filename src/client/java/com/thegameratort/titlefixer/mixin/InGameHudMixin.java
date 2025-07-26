@@ -4,19 +4,17 @@ import com.thegameratort.titlefixer.TitleFixer;
 import com.thegameratort.titlefixer.TitleRenderInfo;
 import com.thegameratort.titlefixer.config.ScoreboardMode;
 import com.thegameratort.titlefixer.config.TitleFixerConfig;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.ColorHelper;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.util.profiler.Profilers;
-import org.spongepowered.asm.mixin.Final;
+import org.joml.Matrix3x2fStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -26,7 +24,6 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(InGameHud.class)
 public abstract class InGameHudMixin {
-    @Final @Shadow private MinecraftClient client;
     @Shadow private int titleStayTicks;
     @Shadow private Text title;
     @Shadow private Text subtitle;
@@ -138,7 +135,7 @@ public abstract class InGameHudMixin {
 
             profiler.push("titleAndSubtitle");
 
-            float ticksLeft = (float)titleRemainTicks - tickCounter.getTickDelta(false);
+            float ticksLeft = (float)titleRemainTicks - tickCounter.getTickProgress(false);
             int alpha = 255;
             if (titleRemainTicks > titleFadeOutTicks + titleStayTicks) {
                 float r = (float)(titleFadeInTicks + titleStayTicks + titleFadeOutTicks) - ticksLeft;
@@ -151,25 +148,25 @@ public abstract class InGameHudMixin {
 
             alpha = MathHelper.clamp(alpha, 0, 255);
             if (alpha > 8) {
-                MatrixStack matrices = context.getMatrices();
-                matrices.push();
-                matrices.translate(titleRI.posX, titleRI.posY, 0.0F);
-                matrices.push();
-                matrices.scale(titleRI.scale, titleRI.scale, 1.0F);
+                Matrix3x2fStack matrices = context.getMatrices();
+                matrices.pushMatrix();
+                matrices.translate(titleRI.posX, titleRI.posY);
+                matrices.pushMatrix();
+                matrices.scale(titleRI.scale, titleRI.scale);
                 int titleColor = ColorHelper.withAlpha(alpha, -1);
                 int titleWidth = textRenderer.getWidth(titlec);
                 context.drawTextWithBackground(textRenderer, titlec, -titleWidth / 2, -10, titleWidth, titleColor);
-                matrices.pop();
+                matrices.popMatrix();
 
                 if (subtitle != null) {
-                    matrices.push();
-                    matrices.scale(subtitleRI.scale, subtitleRI.scale, 1.0F);
+                    matrices.pushMatrix();
+                    matrices.scale(subtitleRI.scale, subtitleRI.scale);
                     int subtitleWidth = textRenderer.getWidth(subtitle);
                     context.drawTextWithBackground(textRenderer, subtitle, -subtitleWidth / 2, 5, subtitleWidth, titleColor);
-                    matrices.pop();
+                    matrices.popMatrix();
                 }
 
-                matrices.pop();
+                matrices.popMatrix();
             }
 
             profiler.pop();
@@ -224,7 +221,7 @@ public abstract class InGameHudMixin {
             method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/scoreboard/ScoreboardObjective;)V",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/DrawContext;drawText(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/Text;IIIZ)I"
+                    target = "Lnet/minecraft/client/gui/DrawContext;drawText(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/Text;IIIZ)V"
             ), index = 4
     )
     private int renderScoreboardSidebar_hook2(int color) {
